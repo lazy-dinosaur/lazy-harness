@@ -4,6 +4,8 @@ import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { parseMonitoringAttachConfig, type MonitoringAttachConfig } from './config.ts'
 import { admitCatalog } from './catalog.ts'
+import { resolveMonitoring } from './global.ts'
+import { manageGlobalMonitoring } from './global-manage.ts'
 
 export const CONFIG_PATH = '.lazy-harness/monitoring-attach.json'
 export const DEFAULT_DOCUMENTS = [
@@ -86,17 +88,20 @@ function atomicWrite(root: string, next: string, old: string | undefined, force:
   }
 }
 
-/** Shared offline CLI/Pi implementation. The only persistent mutation is CONFIG_PATH. */
+/** Shared offline CLI/Pi controls. Global mode never mutates a project file. */
 export function manageMonitoring(root: string, args: string[], deps: ManageDeps = {}) {
-  const o = options([...args]), emit = deps.print ?? console.log
+  const emit = deps.print ?? console.log
   root = realpathSync(resolve(root))
-  const old = current(root)
+  if (args.includes('--global')) return manageGlobalMonitoring(root, args, detectReadFormat(deps.settingsFile), emit)
+  const o = options([...args])
+  const old = o.command === 'config' ? undefined : current(root)
   if (o.command === 'config') {
     try {
-      const config = parseMonitoringAttachConfig(old === undefined ? {} : JSON.parse(old))
-      emit(json(config).trimEnd())
+      const effective = resolveMonitoring(root), { config } = effective
+      emit(json({ ...config, ...effective }).trimEnd())
+      if (effective.reason.startsWith('invalid_')) throw Error('Invalid monitoring config')
       admitCatalog(root, config)
-      emit(`Validation: OK${old === undefined ? ' (absent; effective off)' : ''}`)
+      emit(effective.reason === 'config_absent' ? 'Validation: OK (absent; effective off)' : 'Validation: OK')
     } catch { emit('Validation: FAILED (invalid config or catalog; effective monitoring unavailable)'); throw Error('Monitoring config validation failed') }
     return
   }
@@ -133,11 +138,13 @@ export function manageMonitoring(root: string, args: string[], deps: ManageDeps 
   emit('Next: /login openrouter if no stored OpenRouter credential (not checked); then /reload in Pi; then /monitoring status.')
 }
 
-/** Slash controls deliberately accept only bare enable/disable; advanced flags belong to the CLI. */
+/** Slash global controls explicitly add/remove only the current root; custom flags remain CLI-only. */
 export function handleMonitoringControl(args: string, root: string, ui: { notify: (text: string, level: 'info' | 'warning') => void }, run = manageMonitoring): boolean {
   const value = args.trim()
   if (!/^(enable|disable)(?:\s|$)/.test(value)) return false
-  try { run(root, [value], { print: text => ui.notify(text, 'info') }) }
+  const global = /^(enable|disable)\s+--global$/.exec(value)
+  const commandArgs = global ? [global[1], '--global', '--project', root] : [value]
+  try { run(root, commandArgs, { print: text => ui.notify(text, 'info') }) }
   catch (error) { ui.notify(error instanceof Error ? error.message : 'Monitoring config change failed', 'warning') }
   return true
 }

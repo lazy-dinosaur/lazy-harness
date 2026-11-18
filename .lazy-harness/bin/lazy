@@ -71,7 +71,9 @@ Commands:
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
   monitoring enable [--doc PATH]... [--no-default-docs] [--calls N] [--usd X]
                     [--read-format F] [--force] [--dry-run]
-  monitoring disable [--dry-run] | config
+  monitoring enable --global [--project [PATH]] [--calls N] [--usd X]
+                    [--read-format F] [--all --i-understand] [--force] [--dry-run]
+  monitoring disable [--global [--project [PATH]]] [--dry-run] | config
   monitoring report [--lines N] [--out FILE] [--issue] [--repo OWNER/NAME] [--dry-run]
                                 Collect private metadata offline; optionally submit a GitHub issue
   pi install|remove|list|smoke|doctor

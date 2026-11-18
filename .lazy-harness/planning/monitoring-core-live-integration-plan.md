@@ -34,6 +34,8 @@ Layer: Planning
   - `.lazy-harness/planning/jev-context-and-background-monitoring-research.md`
   - `.lazy-harness/ssot/project-identity.md`
 
+2026-11-14 approved continuation: one isolated global allowlist PR adds strict private global defaults, project-first resolution and deterministic bounded project catalog; primary SDD `.lazy-harness/spec/platform/monitoring-thin-consumer.md`, TDD `.lazy-harness/tests/monitoring-attach-phase1.md`; zero real calls, no merge, temp HOME/XDG validation, clean-main known record-lint comparison, no shared-checkout cwd or live config access.
+
 ## Monitoring config convenience — approved A (2026-11-14)
 
 One isolated `feat/monitoring-enable` PR adds CLI enable/disable/config and Pi bare enable/disable using one offline helper; primary contract/Implementation map: `.lazy-harness/spec/platform/monitoring-thin-consumer.md`, protection: `.lazy-harness/tests/monitoring-attach-phase1.md`. No model calls, reload, merge, dependency/lock/pin changes or shared-checkout cwd/live config access; real activation remains an explicit later user action.

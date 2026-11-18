@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { readMonitoringAttachConfig, parseMonitoringAttachConfig } from './config.ts'
+import { resolveMonitoring } from './global.ts'
 import { notifyMonitoringStatus } from './status-save.ts'
 import { handleMonitoringControl } from './manage.ts'
 
@@ -8,18 +8,17 @@ type Module = typeof import('./index.ts')
 type Loader = () => Promise<Pick<Module, 'installMonitoringPhase1'>>
 /** No runtime vendor imports on the off path. Import failures are advisory, never a hook denial. */
 export function installOptionalMonitoring(pi: ExtensionAPI, root: string, load: Loader = () => import('./index.ts')) {
-  let config: ReturnType<typeof readMonitoringAttachConfig>
-  let reason = 'awaiting_session_start', notified = false
-  try { config = readMonitoringAttachConfig(root) } catch {
-    config = parseMonitoringAttachConfig({})
-    reason = 'invalid_monitoring_config'
-  }
-  if (config.references.stage === 'off' && reason !== 'invalid_monitoring_config') reason = 'disabled'
+  const effective = resolveMonitoring(root), { config, configSource } = effective
+  let reason = config.references.stage === 'off' ? effective.reason : 'awaiting_session_start', notified = false
+  const notice = reason.startsWith('invalid_') || reason === 'no_catalog_documents'
+  if (notice) pi.on('session_start', async (_event, ctx) => {
+    if (!notified) { notified = true; try { ctx.ui.notify(`Monitoring off: ${reason}`, 'warning') } catch { /* advisory */ } }
+  })
   let command: { handler: (args: string, ctx: any) => unknown } | undefined
   pi.registerCommand('monitoring', { description: 'Monitoring enable/disable and status (no model calls)', handler: async (args, ctx) => {
     if (handleMonitoringControl(args, root, ctx.ui)) return
     if (command) { await command.handler(args, ctx); return }
-    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ attached: false, paused: false, rebuilding: false, ready: false, stage: 'off', reason, installHint: MONITORING_INSTALL_HINT }))
+    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ attached: false, paused: false, rebuilding: false, ready: false, stage: 'off', configSource, configReason: effective.reason, allowlistMember: effective.allowlistMember, reason, installHint: MONITORING_INSTALL_HINT }))
   } })
   if (config.references.stage !== 'observe') return
   let started = false

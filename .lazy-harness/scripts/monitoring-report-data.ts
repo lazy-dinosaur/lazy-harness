@@ -24,8 +24,9 @@ export function projectObserve(value: unknown): Obj | null {
   return result
 }
 export function projectStatus(value: unknown): Obj {
-  const v = obj(value), result: Obj = pick(v, ['stage', 'reason', 'installHint'], ['generation'])
-  for (const k of ['attached', 'paused', 'rebuilding', 'ready', 'classifierStopped']) if (typeof v[k] === 'boolean') result[k] = v[k]
+  const v = obj(value), result: Obj = pick(v, ['stage', 'reason', 'installHint', 'configReason'], ['generation'])
+  if (['project', 'global', 'off'].includes(v.configSource)) result.configSource = v.configSource
+  for (const k of ['attached', 'paused', 'rebuilding', 'ready', 'classifierStopped', 'allowlistMember']) if (typeof v[k] === 'boolean') result[k] = v[k]
   result.window = pick(v.window, ['state', 'lastReason'], ['sources', 'bytes', 'renewals'])
   result.scope = v.scope ? pick(v.scope, ['sessionIdHash'], ['bindingGeneration', 'branchGeneration', 'compactionGeneration']) : null
   result.catalog = { documents: documents(obj(v.catalog).documents), ...pick(v.catalog, [], ['totalBytes']) }

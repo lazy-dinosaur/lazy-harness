@@ -81,6 +81,32 @@ Acceptance is offline: monitoring/capture suites, real Reader SDK test, Pi typec
 with inherited `PI_FABRIC_LINEAGE` unset for child runs, record-lint, changed-file check, diff/privacy
 scan; no deps/lockfile changes and no shared-checkout commands. No live smoke is authorized.
 
+## Global allowlist and automatic catalog (2026-11-14, approved A)
+
+Primary contract: `.lazy-harness/spec/platform/monitoring-thin-consumer.md#global-resolution-and-automatic-catalog-2026-11-14-user-approved-a`.
+`packages/lazy-harness-pi/tests/monitoring-global.test.ts` uses temp HOME/XDG_CONFIG_HOME and project
+roots. It protects strict schema/nested keys/types/stages/budgets, project > global > off precedence,
+realpath allowlisting including alias cwd/entries, paired all consent flags, digest/size/path catalog
+ordering, 16-doc/8-KiB/12-KiB ceilings, file/directory symlink refusal, invalid UTF-8/empty catalogs,
+empty/invalid zero classifier lookup/calls/imports, private permissions, defaults-only/add/remove,
+dry-run/force/no-project-writes, Pi current-root controls/reload reminders, and source status.
+The real dispatcher is exercised offline; fake Pi registries fail if looked up on the off path.
+
+| Layer | Independent delta / primary location |
+| --- | --- |
+| SDD | Global authority resolution, config/control API and automatic admission in existing thin-consumer SDD. |
+| BDD | No separate delta beyond visible CLI/Pi controls specified in primary SDD; observe remains non-delivering. |
+| SSOT | New global config schema/permissions owned by the primary component contract; no separate record or ownership change. |
+| DDD | No independent delta; existing monitoring/project/catalog vocabulary retained. |
+
+Implementation map: `global.ts` (`parseGlobalConfig`, `resolveMonitoring`, `automaticCatalog`),
+`global-manage.ts` (`manageGlobalMonitoring`), `manage.ts` (`handleMonitoringControl`), `load.ts` and
+`index.ts` (`installOptionalMonitoring`, `installMonitoringPhase1`). Existing monitoring/capture/full
+regression chain includes this suite. Required validation: monitoring attach, Pi capture, Reader SDK,
+Pi typecheck, full lazy test with inherited PI_FABRIC_LINEAGE unset, changed-file check and privacy/diff
+scan. Full suite comparison uses a separate clean worktree at origin/main 2a3a9b8; known single
+`check_record_lint_cli` failure references missing host-validation draft, not modified in this batch.
+
 ## Protection and scope
 
 `bun run test:monitoring-attach` exercises manifest validation/major refusal, stage and unavailable

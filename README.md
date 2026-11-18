@@ -135,6 +135,45 @@ within that budget. Use repeated `--doc PATH`, `--no-default-docs`, `--calls N`,
 Read format detects the hashline package in Pi settings, otherwise uses plain Pi read text.
 Manual-file fallback: see the [SDD configuration contract](.lazy-harness/spec/platform/monitoring-thin-consumer.md#configuration-manual-file-fallback).
 
+### Global monitoring allowlist (macOS/Linux)
+
+Instead of creating per-project files with `lazy monitoring enable`, explicitly allowlist projects:
+
+```bash
+lazy monitoring enable --global --project /absolute/path/to/project --dry-run
+lazy monitoring enable --global --project /absolute/path/to/project
+# --project without a value uses the current host root:
+lazy monitoring enable --global --project
+lazy monitoring config
+# In each open Pi project: /reload, then /monitoring status
+lazy monitoring disable --global --project /absolute/path/to/project
+# Remove the entire global file (shows it first):
+lazy monitoring disable --global
+```
+
+**Consent:** conversation excerpts of allowlisted projects are sent to **OpenRouter Jev** during
+judgement after reload. Enable/config/status themselves make no model calls. Budgets are **per
+session**, not a global account cap: totals scale with open sessions. First global enable prints this notice.
+
+Global config is `$XDG_CONFIG_HOME/lazy-harness/monitoring.json`, falling back to
+`~/.config/lazy-harness/monitoring.json` (file 0600, directory 0700). Bare CLI `enable --global`
+creates/updates defaults only; it does not enroll any project. Adding/removing allowlist entries preserves
+other projects and defaults; replacing defaults requires `--force` after reviewing the diff.
+`--all --i-understand` explicitly enables all projects; `all` is false by default. A project cannot be
+excluded while `all:true`; remove the global file first. Global mode never writes project files.
+
+At startup, a project `.lazy-harness/monitoring-attach.json` **wins entirely**, even if off or invalid.
+Otherwise, only realpath-matching allowlisted roots (or explicit `all:true`) use global defaults.
+The automatic catalog considers direct `.lazy-harness/ssot/*.md` and `decisions/*.md`, preferring
+`## Rule digest`, then smaller files, then path. It admits no symlinks, at most 16 documents,
+8 KiB each and 12 KiB total; no eligible documents means off with `no_catalog_documents` and no calls.
+Use a project file for a custom catalog. Config shows source, membership, selected paths/bytes and validation;
+Pi status adds `configSource` (`project | global | off`) and `configReason`.
+
+In Pi, `/monitoring enable --global` and `/monitoring disable --global` add/remove **only the current
+project** and remind you to `/reload`; they never reload automatically. Per-project `/monitoring enable`
+and `/monitoring disable` remain available. Removing a project override can reveal an existing global opt-in.
+
 Status distinguishes installation from readiness: `attached` means the composition is installed
 and not closed; `paused` marks a pre-boundary fence; `rebuilding` means a fresh pipeline is needed
 or retired work is still draining. `ready = attached && !paused && !rebuilding`. Immediately after
