@@ -235,12 +235,17 @@ describe('phase 1 offline attachment', () => {
       if (owner.stage !== 'observe') throw Error('observe missing')
       pi.emit('session_start'); pi.emit('input', { text: 'old input', source: 'interactive' }); await ready
       const reserved = owner.status().budget.used.tokens
-      pi.emit('session_before_compact'); expect(owner.status().attached).toBe(false)
+      pi.emit('session_before_compact')
+      expect(owner.status().attached).toBe(true); expect(owner.status().paused).toBe(true)
+      expect(owner.status().rebuilding).toBe(true); expect(owner.status().ready).toBe(false)
       release(); await owner.idle()
       expect(owner.status().counters.runs).toBe(0)
       expect(owner.status().lastOutcomes.some(o => o.outcome === 'skipped')).toBe(true)
-      pi.emit('session_compact'); pi.emit('input', { text: 'new input', source: 'interactive' }); await owner.idle()
-      expect(calls).toHaveLength(2); expect(owner.status().attached).toBe(true); expect(owner.status().budget.used.tokens).toBeGreaterThan(reserved); expect(owner.status().budget.remaining.calls).toBe(0)
+      pi.emit('session_compact')
+      expect(owner.status().attached).toBe(true); expect(owner.status().paused).toBe(false)
+      expect(owner.status().rebuilding).toBe(true); expect(owner.status().ready).toBe(false)
+      pi.emit('input', { text: 'new input', source: 'interactive' }); await owner.idle()
+      expect(calls).toHaveLength(2); expect(owner.status().ready).toBe(true); expect(owner.status().rebuilding).toBe(false); expect(owner.status().attached).toBe(true); expect(owner.status().budget.used.tokens).toBeGreaterThan(reserved); expect(owner.status().budget.remaining.calls).toBe(0)
       pi.emit('session_before_compact'); pi.emit('session_compact_failed'); pi.emit('input', { text: 'budget exhausted', source: 'interactive' }); await owner.idle()
       expect(calls).toHaveLength(2)
       pi.emit('session_shutdown'); pi.emit('input', { text: 'closed', source: 'interactive' }); await owner.idle()
@@ -296,7 +301,7 @@ describe('phase 1 offline attachment', () => {
       const before = calls.length, messages: string[] = []
       await installed.commands.get('monitoring').handler('status', { ui: { notify: (s: string) => messages.push(s) } })
       const status = JSON.parse(messages[0]); expect(status.stage).toBe('observe'); expect(status.watchEvents).toEqual(['input']); expect(status.log.path).toBeNull(); expect(calls).toHaveLength(before)
-      for (const field of ['attached', 'reason', 'scope', 'generation', 'catalog', 'budget', 'counters', 'lastOutcomes', 'log']) expect(status).toHaveProperty(field)
+      for (const field of ['attached', 'paused', 'rebuilding', 'ready', 'reason', 'scope', 'generation', 'catalog', 'budget', 'counters', 'lastOutcomes', 'log']) expect(status).toHaveProperty(field)
       await Promise.all(installed.emit('session_shutdown'))
     } finally { await owner.close(); rmSync(dir, { recursive: true, force: true }) }
   })
