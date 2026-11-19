@@ -64,6 +64,15 @@ config off/valid/invalid output, strict options, both read-format detection bran
 and synced-host source lookup, and Pi delegation via the shared helper with a throwing reload/model
 context. Off still has no monitoring hooks/vendor loads; it now has a control/status command.
 
+Offline fixture isolation: `monitoring-manage.test.ts` gives the config-off/valid/invalid case an empty, temporary `XDG_CONFIG_HOME` and restores it after use. `monitoring-attach-phase1.test.ts` gives the private metadata sink a canonical temporary state directory so macOS's `/var` alias does not trigger the deliberate symlink-ancestor refusal. Neither fixture reads a personal monitoring config or changes production logging/admission.
+
+| Layer | Fixture repair impact |
+| --- | --- |
+| SDD | No independent delta; config precedence and log-path refusal unchanged. |
+| BDD | No independent delta; user-visible behavior unchanged. |
+| SSOT | No independent delta; no config defaults or ownership changed. |
+| DDD | No independent delta. |
+
 Implementation map: `manageMonitoring`, `detectReadFormat`, `handleMonitoringControl` in
 `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/manage.ts`, CLI `monitoring` in
 `.lazy-harness/scripts/monitoring.ts`, registered via `.lazy-harness/bin/lazy`, Pi `load.ts` and
