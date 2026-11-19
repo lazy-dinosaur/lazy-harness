@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, statSync, readdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, statSync, readdirSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { attachMonitoringPhase1, installMonitoringPhase1, HOST_PORT_MAJORS, MONITORING_ROOT, UNAVAILABLE_PORTS, OBSERVER_LIMITS } from '../extensions/lazy-harness/monitoring/index.ts'
@@ -184,7 +184,9 @@ describe('phase 1 offline attachment', () => {
     } finally { rmSync(dir, { recursive: true, force: true }) }
   })
   test('private metadata log, status, permissions, retention, size cap and no body leakage', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'lh-telemetry-')), state = mkdtempSync(join(tmpdir(), 'lh-state-'))
+    const dir = mkdtempSync(join(tmpdir(), 'lh-telemetry-'))
+    // The sink rejects symlink ancestors, including macOS's /var alias.
+    const state = realpathSync(mkdtempSync(join(tmpdir(), 'lh-state-')))
     const calls: any[] = [], pi = hooks()
     let owner: ReturnType<typeof attachMonitoringPhase1> | undefined
     try {

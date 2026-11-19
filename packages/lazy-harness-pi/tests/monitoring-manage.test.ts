@@ -1,5 +1,5 @@
 import { afterEach, test, expect } from 'bun:test'
-import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -97,11 +97,18 @@ test('read format detection: npm versioned, object/local package, absent, malfor
   expect(detectReadFormat(join(f.root, 'missing'))).toBe('pi-read-text-v1')
 })
 test('config prints effective off/parsed defaults and validation failures without writing', () => {
-  const f = fixture(); f.run('config'); expect(f.messages.join('\n')).toContain('absent; effective off'); expect(existsSync(f.file)).toBe(false)
-  f.run('enable'); f.run('config'); expect(f.messages.at(-1)).toBe('Validation: OK')
-  f.put(CONFIG_PATH, '{'); expect(() => f.run('config')).toThrow('validation failed')
-  f.put(CONFIG_PATH, '{"references":{"stage":"observe"},"catalog":[{"id":"ssot:missing","path":".lazy-harness/ssot/missing.md"}]}')
-  expect(() => f.run('config')).toThrow('validation failed')
+  const f = fixture(), previous = process.env.XDG_CONFIG_HOME
+  process.env.XDG_CONFIG_HOME = join(realpathSync(f.root), 'xdg-config')
+  try {
+    f.run('config'); expect(f.messages.join('\n')).toContain('absent; effective off'); expect(existsSync(f.file)).toBe(false)
+    f.run('enable'); f.run('config'); expect(f.messages.at(-1)).toBe('Validation: OK')
+    f.put(CONFIG_PATH, '{'); expect(() => f.run('config')).toThrow('validation failed')
+    f.put(CONFIG_PATH, '{"references":{"stage":"observe"},"catalog":[{"id":"ssot:missing","path":".lazy-harness/ssot/missing.md"}]}')
+    expect(() => f.run('config')).toThrow('validation failed')
+  } finally {
+    if (previous === undefined) delete process.env.XDG_CONFIG_HOME
+    else process.env.XDG_CONFIG_HOME = previous
+  }
 })
 for (const args of [['enable', '--calls', '-1'], ['enable', '--calls', '1.5'], ['enable', '--calls', '9007199254740992'], ['enable', '--usd', 'NaN'], ['enable', '--usd', '-1'], ['enable', '--read-format', 'bad'], ['enable', '--doc'], ['enable', '--oops'], ['disable', '--force'], ['config', '--dry-run']]) test('invalid args ' + args.join(' '), () => {
   const f = fixture(); expect(() => f.run(...args)).toThrow(); expect(existsSync(f.file)).toBe(false)

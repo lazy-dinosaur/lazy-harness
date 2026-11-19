@@ -306,6 +306,7 @@ omp -e "$LAZY_HARNESS_PI_PACKAGE" --help
 - `tool_call` bridges Pi tool payloads into `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` and blocks only when the generic search/read evidence guard denies.
 - `tool_call` normalizes Pi shell aliases `cmd`, `command`, `shell`, and `terminal` to lazy `bash` before invoking the guard; not-armed action blocks include the read-debt status/detail.
 - Commands: `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`, `/lazy-import-antigravity-mcp`.
+- Pi 1.1+: `/lazy-move "/path/to/project" [--prompt text]` continues the saved conversation in a new session using the target project’s tools and rules. The original session stays available. Use `lazy_move_project` through the agent for the same handoff after the current turn; a queued request does not mean the session has already switched.
 
 ## Antigravity MCP import
 
