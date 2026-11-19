@@ -2973,7 +2973,7 @@ def check_pi_package_layout_and_contract() -> None:
             "const sent = [];\n"
             "let switched = 0;\n"
             "const pi = { on(){}, registerCommand(n,o){commands.set(n,o)}, registerTool(o){tools.set(o.name,o)}, sendUserMessage(msg,opts){sent.push({msg,opts,via:'pi'})}, async exec(){return {stdout:'',stderr:'',exitCode:0}} };\n"
-            "lazyHarnessPi(pi);\n"
+            "lazyHarnessPi(pi, { readerTransport: {} }); // legacy shared-adapter path; native Pi fork exercised by project-move-cli.test.ts\n"
             "const tool = tools.get('lazy_move_project');\n"
             "if (!tool || !commands.has('lazy-move')) throw new Error('lazy move surfaces not registered');\n"
             "const sourceRoot=" + json.dumps(str(source_root)) + ";\n"

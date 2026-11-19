@@ -187,3 +187,22 @@ Execution approved by the user on 2026-08-02 after the historical Jcode cwd comp
 - SSOT: live runtime cwd becomes the active project root; no project ownership or trust-registry ownership change.
 - DDD: no business-domain delta.
 - Planning: this corrected record supersedes the discarded worktree-first proposal.
+
+## Pi-only follow-up — conversation copy to another project
+
+- Approved: implement both `/lazy-move` and `lazy_move_project` with Pi's public `--fork` equivalent, commit/push only the isolated change to `main`, and apply the verified package. Leave the shared source checkout/index and Pi core unchanged. This differs from the completed Jcode same-session work above: the destination gets a new session ID.
+- Preserve the original Pi session file: no deletion, archival, or relocation. An ordinary source turn may append its tool call and queued receipt before the fork; only the target receives the optional continuation prompt. A Pi-cancelled switch leaves the source active; on runtime startup errors the original remains independently resumable.
+- Implementation map: `.lazy-harness/spec/platform/pi-agent-package.md` owns the adapter contract. `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#forkPiConversation` calls Pi's public `SessionManager.forkFrom`, then normal session switching to rebuild target-root services. The model tool defers until `agent_settled` and dispatches the registered command. `packages/lazy-harness-pi/tests/project-move-cli.test.ts` runs a real offline Pi CLI/RPC with two projects, verifying conversation, cwd, target-only project instructions, source retention, and cancelled-switch reporting.
+
+| Layer | Independent impact |
+|---|---|
+| SDD | Pi extension handoff and completion contract updated in `.lazy-harness/spec/platform/pi-agent-package.md`. |
+| BDD | User-visible retention and new identity are specified in this follow-up; the existing agent-owned fallback policy for unavailable transitions is unchanged. |
+| SSOT | No independent delta; Pi remains authoritative for session files and workspace cwd. |
+| DDD | No independent delta. |
+
+### Validation and rollout hold
+
+- Actual Pi 1.5.2 targeted proof: 4 passed (official fork, slash command, model tool and cancelled switch); fast static check passed for all 10 changed files. Pi adapter typechecking passed during the full regression lane.
+- The standard governor timed out at 300 seconds. The explicit full pre-push test then finished red with a missing runtime-only draft reference in `.lazy-harness/tests/host-validation-isolation.md` and two offline monitoring assertions. Both failing lanes reproduced in unchanged `origin/main` at `f005da662d9a`; they are not regressions from this Pi move patch.
+- The user subsequently directed the work to continue through rollout, including the narrow repairs for these reproduced baseline blockers. Remove the missing runtime-draft reference without weakening record-lint, and isolate the offline monitoring fixtures from user XDG config and symlinked macOS temp paths without changing production monitoring. Publish and apply only after the full pre-push gate passes.

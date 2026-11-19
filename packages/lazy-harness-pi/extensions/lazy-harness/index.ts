@@ -1,4 +1,5 @@
 import { SessionManager, type AgentToolResult, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import * as PiSdk from "@earendil-works/pi-coding-agent";
 import { parseReaderResultPacket, type ReaderResultStatus } from "./reader-result.ts";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
@@ -47,6 +48,7 @@ type MoveProjectDetails = {
   switched: boolean;
   switchedSessionFile?: string;
   worktreeOutput: string;
+  queued?: boolean;
 };
 
 type RecentToolCall = {
@@ -1015,6 +1017,44 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   return [stdout, stderr].filter(Boolean).join("\n");
 }
 
+// Pi 1.1 added the abort flag required to suppress deferred moves after cancellation.
+const [piMajor, piMinor] = (PiSdk.VERSION ?? "").split(".").map(Number);
+const usePiConversationFork = !runtime.readerTransport && (piMajor > 1 || (piMajor === 1 && piMinor >= 1)) && typeof SessionManager.forkFrom === "function";
+const queuedMoveArg = "--run-queued-move";
+type PiMove = { target: string; sourceFile: string; prompt?: string };
+let pendingMove: PiMove | undefined;
+let dispatchMove: PiMove | undefined;
+
+function sourceSessionFile(ctx: ExtensionContext): string {
+  const file = ctx.sessionManager?.getSessionFile?.();
+  if (!file || !existsSync(file)) throw new Error("No saved Pi conversation to move. Start a conversation in a persistent session first.");
+  return file;
+}
+
+function parsePiMoveArgs(args: string): { path: string; prompt?: string } {
+  const value = args.trim();
+  const match = /^(?:"([^"]*)"|'([^']*)'|([^"'].*?))(?:\s+--prompt(?:\s+([\s\S]*))?)?$/s.exec(value);
+  if (!match) throw new Error('Usage: /lazy-move "/path/to/project" [--prompt text]');
+  return { path: match[1] ?? match[2] ?? match[3], prompt: match[4] };
+}
+
+async function forkPiConversation(ctx: any, move: PiMove): Promise<void> {
+  if (!ctx.isIdle()) throw new Error("Wait for the current Pi turn to finish before moving.");
+  if (!existsSync(join(move.target, ".lazy-harness", "bin", "lazy"))) {
+    throw new Error(`target is not a lazy-harness project: ${move.target}`);
+  }
+  if (sourceSessionFile(ctx) !== move.sourceFile) throw new Error("The source Pi session changed; move cancelled.");
+  const session = SessionManager.forkFrom(move.sourceFile, move.target);
+  const sessionFile = session.getSessionFile();
+  if (!sessionFile) throw new Error(`Failed to persist a copy of the Pi conversation for ${move.target}`);
+  const result = await ctx.switchSession(sessionFile, {
+    withSession: async (nextCtx: any) => {
+      nextCtx.ui.notify(`Continued the conversation in ${move.target} (new Pi session; original retained).`, "info");
+      if (move.prompt) await nextCtx.sendUserMessage(move.prompt);
+    },
+  });
+  if (result.cancelled) ctx.ui.notify(`Move cancelled; original session remains active. The copy is at ${sessionFile}.`, "warning");
+}
   const captureEvidence = new CaptureEvidence();
   const clearCapture = () => captureEvidence.reset("");
   const clearSessionEvidence = () => {
@@ -1034,7 +1074,16 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     regroundBodyByRoot.clear();
   };
   pi.on("session_start", clearSessionEvidence);
-  pi.on("session_shutdown", () => { clearCapture(); runtime.readerTransport?.dispose(); });
+  pi.on("session_shutdown", () => { pendingMove = dispatchMove = undefined; clearCapture(); runtime.readerTransport?.dispose(); });
+  if (usePiConversationFork) pi.on("agent_settled", (event, ctx) => {
+    const move = pendingMove;
+    pendingMove = undefined;
+    if (!move || !("aborted" in event) || event.aborted !== false || ctx.sessionManager.getSessionFile() !== move.sourceFile) return;
+    dispatchMove = move;
+    // Pi dispatches this command after every settled handler returns. Tool
+    // contexts cannot switch, and the old runtime must persist the tool result first.
+    pi.sendUserMessage(`/lazy-move ${queuedMoveArg}`, { expandPromptTemplates: true });
+  });
   pi.on("input", async (event: any, ctx: any) => {
     const root = findLazyRootForInvocation(event, ctx);
     if (!root) return undefined;
@@ -1539,8 +1588,21 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   });
 
   pi.registerCommand("lazy-move", {
-    description: "Move Pi to another lazy-harness project/session. Usage: /lazy-move /path/to/project [--prompt text]",
+    description: usePiConversationFork
+      ? 'Continue this conversation in a new target-project Pi session. Usage: /lazy-move "/path/to/project" [--prompt text]'
+      : "Move Pi to another lazy-harness project/session. Usage: /lazy-move /path/to/project [--prompt text]",
     handler: async (args: string, ctx: any) => {
+      if (usePiConversationFork) {
+        if (args.trim() === queuedMoveArg) {
+          const move = dispatchMove;
+          dispatchMove = undefined;
+          if (move) await forkPiConversation(ctx, move);
+          return;
+        }
+        const { path, prompt } = parsePiMoveArgs(args);
+        await forkPiConversation(ctx, { target: resolveTargetPath(ctx, path), sourceFile: sourceSessionFile(ctx), prompt });
+        return;
+      }
       const [targetArg, ...rest] = String(args || "").trim().split(/\s+/).filter(Boolean);
       const target = resolveTargetPath(ctx, targetArg || "");
       const promptIndex = rest.indexOf("--prompt");
@@ -1693,8 +1755,12 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   if (typeof (pi as any).registerTool === "function") pi.registerTool({
     name: "lazy_move_project",
     label: "Lazy Move Project",
-    description: "Create an optional git worktree and switch Pi to another lazy-harness project/session when supported. Use when the user asks to move/switch to another repo/worktree.",
-    promptSnippet: "Create a worktree if requested, then switch Pi to the target lazy-harness project when the runtime exposes switchSession.",
+    description: usePiConversationFork
+      ? "Continue the saved Pi conversation in a new session at an approved target project. The original is retained. An explicitly requested worktree can be prepared first."
+      : "Create an optional git worktree and switch Pi to another lazy-harness project/session when supported. Use when the user asks to move/switch to another repo/worktree.",
+    promptSnippet: usePiConversationFork
+      ? "Queue a conversation copy to the approved target after the current Pi turn settles; queued does not mean switched."
+      : "Create a worktree if requested, then switch Pi to the target lazy-harness project when the runtime exposes switchSession.",
     promptGuidelines: [
       "Use lazy_move_project when the user asks to move/switch to another lazy-harness project or to create a worktree and continue there.",
       "lazy_move_project should only be used with an explicit targetPath/worktreePath from the user or from read project evidence; do not invent paths.",
@@ -1706,12 +1772,20 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       branch: Type.Optional(Type.String({ description: "Optional new branch name for git worktree add -b." })),
       baseRef: Type.Optional(Type.String({ description: "Optional base ref for git worktree add." })),
       prompt: Type.Optional(Type.String({ description: "Optional prompt to send after switching session." })),
-      autoSwitch: Type.Optional(Type.Boolean({ description: "Switch to the target project after preparation when ctx.switchSession is available. Defaults to true." })),
+      autoSwitch: Type.Optional(Type.Boolean({ description: "Continue in the target project after preparation when supported. Defaults to true." })),
     }),
     async execute(_toolCallId: string, params: any, signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<AgentToolResult<MoveProjectDetails>> {
       const root = findLazyRootForInvocation(undefined, ctx);
       if (!root) throw new Error("lazy-harness root not found from current cwd");
       const target = resolveTargetPath(ctx, params.createWorktree ? params.worktreePath : params.targetPath);
+      const autoSwitch = params.autoSwitch !== false;
+      let sourceFile: string | undefined;
+      if (usePiConversationFork && autoSwitch) {
+        if (ctx.mode !== "tui" && ctx.mode !== "rpc") throw new Error("Pi conversation moves require interactive or RPC mode.");
+        if (pendingMove || dispatchMove) throw new Error("A Pi conversation move is already queued.");
+        sourceFile = sourceSessionFile(ctx);
+        if (signal?.aborted) throw new Error("Pi conversation move was aborted.");
+      }
       let worktreeOutput = "";
       if (params.createWorktree) {
         worktreeOutput = await createWorktree(pi, { ...ctx, signal }, root, target, params.branch, params.baseRef);
@@ -1719,7 +1793,15 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       if (!existsSync(join(target, ".lazy-harness", "bin", "lazy"))) {
         throw new Error(`target is not a lazy-harness project after preparation: ${target}`);
       }
-      const autoSwitch = params.autoSwitch !== false;
+      if (sourceFile) {
+        if (signal?.aborted || pendingMove || dispatchMove) throw new Error("Pi conversation move was aborted or another move was queued.");
+        pendingMove = { target, sourceFile, prompt: params.prompt };
+        return {
+          content: [{ type: "text", text: [`Queued conversation copy to ${target} after the current Pi turn. The original session is retained.`, worktreeOutput].filter(Boolean).join("\n") }],
+          details: { targetPath: target, autoSwitch, switched: false, queued: true, worktreeOutput },
+          terminate: true,
+        };
+      }
       let switchedSessionFile = "";
       if (autoSwitch) {
         if (typeof ctx.switchSession === "function") {

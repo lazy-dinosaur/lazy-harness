@@ -16,7 +16,7 @@
     "test:run": "node scripts/test-runner.mjs",
     "test:fabric:setup": "node scripts/setup-fabric-test-runtime.mjs",
     "typecheck:fabric-tests": "bun node_modules/typescript/bin/tsc -p tests/runtime/fabric/tsconfig.json && bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun packages/lazy-harness-pi/tests/fixtures/fabric-cli-runner.ts packages/lazy-harness-pi/tests/reader-primary-answer-cli.test.ts packages/lazy-harness-pi/tests/fabric-reader-cli.test.ts tests/lazy-harness/test-runner-routing.test.ts tests/lazy-harness/owned-child-settlement.test.ts",
-    "test:fabric": "bun test packages/lazy-harness-pi/tests/reader-primary-answer-cli.test.ts packages/lazy-harness-pi/tests/fabric-reader-cli.test.ts",
+    "test:fabric": "bun test packages/lazy-harness-pi/tests/reader-primary-answer-cli.test.ts packages/lazy-harness-pi/tests/fabric-reader-cli.test.ts packages/lazy-harness-pi/tests/project-move-cli.test.ts",
     "test:reader:legacy": "bun test ./packages/lazy-harness-pi/tests/reader-primary-answer-cli.legacy.fixture.ts",
     "build:node": "bun build .lazy-harness/scripts/*.ts --target=bun --outdir \"$(mktemp -d)\" > /dev/null",
     "typecheck:node": "bun run typecheck:bun",
